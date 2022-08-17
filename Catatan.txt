@@ -1,0 +1,15 @@
+email: arfan@gmail.com
+pass : arfan12345678
+
+Need help:
+1. WhatsApp notification.
+a. form update device and scan barcode
+b. ketika submit/save data customer baru maka akan ada notifikasi by WA ke nomor yang baru saja di tambahkan dengan isi sebagai berikut:
+
+"Customer dengan data berikut sudah di tambahkan ke dalam database kami:
+Nama: Ayu
+Alamat: Kakap
+HP: 0816220705
+email: ayu@gmail.com
+
+Terima kasih sudah berkenan benjadi bagian dari business kami"
