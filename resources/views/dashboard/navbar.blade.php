@@ -26,6 +26,9 @@
                         <a class="bb nav-link" href="{{ route('customers.index') }}">Customer</a>
                     </li>
                     <li class="nav-item">
+                        <a class="bb nav-link" href="{{ route('messages.index') }}">Messages</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="bb nav-link" href="{{ route('devices.index') }}">Device</a>
                     </li>
 

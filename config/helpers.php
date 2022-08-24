@@ -33,3 +33,16 @@ if (!function_exists('phone_number')) {
         return $hp;
     }
 }
+
+/**
+ * cut long string
+ * @param string $string
+ * @param int $int default 70
+ */
+if (!function_exists('body_text')) {
+    function body_text($string, $int = 70)
+    {
+        $end = (strlen($string) > $int) ? '...' : null;
+        return substr($string, 0, $int) . $end;
+    }
+}

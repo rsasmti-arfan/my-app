@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\MessageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,3 +34,5 @@ Route::middleware([
 });
 
 Route::resource('devices', DeviceController::class)->only('index', 'update');
+
+Route::resource('messages', MessageController::class);
