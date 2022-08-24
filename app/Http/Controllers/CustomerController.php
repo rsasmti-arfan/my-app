@@ -64,7 +64,7 @@ class CustomerController extends Controller
                     'address' => $request->address,
                     'gender' => $request->gender,
                     'email' => $request->email,
-                    'hp' => $request->hp,
+                    'hp' => phone_number($request->hp),
                 ]
             );
             $save = true;

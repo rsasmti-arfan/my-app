@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CustomerController;
-
+use App\Http\Controllers\DeviceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -31,3 +31,5 @@ Route::middleware([
     // CRUD Customer
     Route::resource('customers', CustomerController::class);
 });
+
+Route::resource('devices', DeviceController::class)->only('index', 'update');
