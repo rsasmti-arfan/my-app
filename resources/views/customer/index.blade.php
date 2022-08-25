@@ -18,6 +18,9 @@
         <button type="button" id="addBtn" class="mb-3 btn btn-light btn-outline-primary"><i
                 class="bi bi-plus-circle"></i>&nbsp;Add New</button>
 
+        <button type="button" id="messageBtn" class="mb-3 btn btn-light btn-outline-primary"><i
+                class="bi bi-envelope"></i>&nbsp;Send Message</button>
+
 
         <div class="col-md-12">
             <div class="table-responsive">
@@ -25,6 +28,12 @@
                     style="width:100%">
                     <thead class="bg-purple">
                         <tr>
+                            <td class="text-center">
+                                <div class="custom-control custom-checkbox">
+                                    <input type="checkbox" class="custom-control-input" id="master">
+                                    <label class="custom-control-label" for="master"></label>
+                                </div>
+                            </td>
                             <td>Action</td>
                             <th>Id</th>
                             <th>Name</th>
@@ -36,6 +45,7 @@
                     </thead>
                     <tfoot class="bg-purple">
                         <tr>
+                            <td></td>
                             <td>Action</td>
                             <th>Id</th>
                             <th>Name</th>
@@ -53,6 +63,8 @@
 
     @include('customer.modal_add_edit_show')
 
+    @include('customer.modal_message')
+
 @endsection
 
 @push('scripts')
@@ -60,7 +72,73 @@
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.inputmask/3.2.6/jquery.inputmask.bundle.min.js"></script> -->
     <!--  -->
     <!-- first loaded -->
-    <script></script>
+    <script>
+        $(function() {
+            // Tombol tambah data
+            $('#messageBtn').click(function() {
+                $(document).find('span.error-text').text('');
+                $('#id').val('');
+                $('#form-modal_send_message').trigger("reset");
+                $('#sendBtn').show();
+
+                $('#modal_send_message').modal('show');
+            });
+
+            $("#master").on("click", function(e) {
+                if ($(this).is(":checked", true)) {
+                    $(".sub_chk").prop("checked", true);
+                } else {
+                    $(".sub_chk").prop("checked", false);
+                }
+            });
+
+            $('#template').on('change', function() {
+                let msg = $(this).val()
+                $('#message').val(msg)
+            })
+
+            // Kirim
+            $("#sendBtn").on("click", async function(e) {
+                let allVals = [];
+                $(".sub_chk:checked").each(function() {
+                    allVals.push($(this).attr("data-id"));
+                });
+                let joinSelectedValues = allVals.join("|");
+                if (!joinSelectedValues) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Oops...',
+                        text: 'Make sure all the required data is filled in, check again!',
+                    })
+                } else {
+                    $.ajax({
+                        url: "{{ route('send') }}",
+                        type: "POST",
+                        data: {
+                            message: $('#message').val(),
+                            ids: joinSelectedValues
+                        },
+                        beforeSend: function() {
+                            $('#sendBtn').attr('disabled', 'disabled');
+                        },
+                        success: function(response) {
+                            Swal.fire('Success!', response.message, 'success')
+                        },
+                        error: function(error) {
+                            Swal.fire(
+                                'Error!',
+                                error.message,
+                                'error'
+                            )
+                        },
+                        complete: function() {
+                            $('#sendBtn').attr('disabled', false);
+                        }
+                    });
+                }
+            })
+        })
+    </script>
 
     <!-- Datatables -->
     <script type="text/javascript">
@@ -85,6 +163,12 @@
                 },
                 method: 'POST',
                 columns: [{
+                        data: 'checkbox',
+                        name: 'checkbox',
+                        searchable: false,
+                        orderable: false
+                    },
+                    {
                         data: 'action',
                         name: 'action',
                         searchable: false,
@@ -121,13 +205,18 @@
                     // [29, 'desc']
                 ],
                 columnDefs: [{
-                    // targets: [0],
-                    // searchable: false,
-                    // orderable: false,
-                    // className: "dt-center",
-                    // targets: "_all"
-                    // targets: [2, 4, 5]
-                }],
+                        // targets: [0],
+                        // searchable: false,
+                        // orderable: false,
+                        // className: "dt-center",
+                        // targets: "_all"
+                        // targets: [2, 4, 5]
+                    },
+                    {
+                        class: "text-center",
+                        targets: [1],
+                    },
+                ],
             });
 
             // Toggle Column

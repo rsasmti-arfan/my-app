@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\WaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,3 +37,5 @@ Route::middleware([
 Route::resource('devices', DeviceController::class)->only('index', 'update');
 
 Route::resource('messages', MessageController::class);
+
+Route::post('send', [WaController::class, 'send'])->name('send');
