@@ -18,7 +18,7 @@ class MessageController extends Controller
     {
         if ($request->ajax()) {
 
-            $data = Message::all();
+            $data = Message::where('is_auto', '0')->get();
             // $data->orderBy('customers.updated_at', 'DESC');
 
             return DataTables::of($data)
@@ -133,5 +133,14 @@ class MessageController extends Controller
     public function destroy($id)
     {
         Message::find($id)->delete();
+    }
+
+    /**
+     * get auto message
+     */
+    public function getAutoMessage()
+    {
+        $message = Message::where('is_auto', '1')->first();
+        return response()->json($message);
     }
 }

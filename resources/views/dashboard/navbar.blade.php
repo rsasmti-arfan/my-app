@@ -2,7 +2,7 @@
     <nav class="navbar navbar-expand-lg bg-light">
         <div class="container">
             <a href="/home">
-                <img src="{{ URL::to('/images') }}/indosatooredoohutchison_logo.svg" width="85">
+                <img src="{{ URL::to('/images') }}/indosatooredoohutchison_logo.png" width="85">
             </a>
             &nbsp;&nbsp;
             <a class="navbar-brand mb-0 h1">D'BEST</a>

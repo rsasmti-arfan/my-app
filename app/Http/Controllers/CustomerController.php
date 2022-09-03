@@ -3,12 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\Device;
 use App\Models\Message;
 use Illuminate\Http\Request;
 use DataTables;
 use Validator;
 use DB;
-
+use Illuminate\Support\Carbon;
 
 class CustomerController extends Controller
 {
@@ -67,7 +68,7 @@ class CustomerController extends Controller
         if (!$validator->passes()) {
             return response()->json(['status' => 0, 'error' => $validator->errors()->toArray()]);
         } else {
-            Customer::updateOrCreate(
+            $customer = Customer::updateOrCreate(
                 ['id' => $request->id],
                 [
                     'name' => $request->name,
@@ -77,9 +78,18 @@ class CustomerController extends Controller
                     'hp' => phone_number($request->hp),
                 ]
             );
+
+            if ($customer->wasRecentlyCreated) {
+                // on save
+                $sendWa = $this->_sendWa($request); // send wa to saved customers
+            } else {
+                // on update
+                $sendWa = null;
+            }
+
             $save = true;
             if ($save) {
-                return response()->json(['status' => 1,]);
+                return response()->json(['status' => 1, 'response' => $sendWa]);
             }
         }
     }
@@ -93,5 +103,61 @@ class CustomerController extends Controller
     public function destroy($id)
     {
         Customer::find($id)->delete();
+    }
+
+    /**
+     * send whatsapp message
+     * @param object $request
+     */
+    private function _sendWa($request)
+    {
+        $message = Message::where('is_auto', '1')->first()->message;
+
+        $arrayDataSet = $this->_replaceArray([
+            'name'       => $request->name,
+            'address'    => $request->address,
+            'gender'     => $request->gender,
+            'email'      => $request->email,
+            'hp'         => '+' . phone_number($request->hp),
+            'created_at' => date_id(Carbon::now()) . ' - ' . time_id(Carbon::now()),
+            'updated_at' => date_id(Carbon::now()) . ' - ' . time_id(Carbon::now()),
+        ]);
+
+        $convertedMsg = $this->_replaceKeywordMessage($arrayDataSet, $message);
+
+        # curl send wa
+        $params = [
+            'receiver' => phone_number($request->hp),
+            'message' => $convertedMsg
+        ];
+
+        $sessionId = (int) Device::first()->phone;
+        $url = env('NODE_WA_URL') . '/chats/send?id=' . $sessionId;
+
+        return http_request('POST', $url, json_encode($params));
+    }
+
+    /** replace array */
+    private function _replaceArray($oldArray, $newArray = [], $theKey = null)
+    {
+        foreach ($oldArray as $key => $value) {
+            if (is_array($value)) {
+                $newArray = array_merge($newArray, replaceArray($value, $newArray, $key));
+            } else {
+                if (!is_null($theKey)) $key = $theKey . "." . $key;
+                $newArray["{" . $key . "}"] = $value;
+            }
+        }
+        return $newArray;
+    }
+
+    /**
+     * replace msg autoreplay with keyword
+     * @param array $array : dataset replace
+     * @param string $string : find key in string
+     */
+    private function _replaceKeywordMessage($array, $string)
+    {
+        return str_replace(array_keys($array), array_values($array), $string);
     }
 }

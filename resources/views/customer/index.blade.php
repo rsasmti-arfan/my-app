@@ -21,6 +21,11 @@
         <button type="button" id="messageBtn" class="mb-3 btn btn-light btn-outline-primary"><i
                 class="bi bi-envelope"></i>&nbsp;Send Message</button>
 
+        <button type="button" id="autoMessageBtn" class="mb-3 btn btn-light btn-outline-primary"><i
+                class="bi bi-pencil"></i>&nbsp;
+            Auto Message
+        </button>
+
 
         <div class="col-md-12">
             <div class="table-responsive">
@@ -62,6 +67,8 @@
     </div>
 
     @include('customer.modal_add_edit_show')
+
+    @include('customer.modal_auto_message')
 
     @include('customer.modal_message')
 
@@ -136,6 +143,57 @@
                         }
                     });
                 }
+            })
+
+            /** Auto Message */
+            // event: show modal
+            $('#autoMessageBtn').click(function() {
+                $.get("{{ route('messages.automessage') }}", function(data) {
+                    $('#auto_id').val(data.id);
+                    $('#auto_name').val(data.name);
+                    $('#auto_message').val(data.message);
+
+                    $('#modal_auto_message').modal('show')
+                })
+            })
+            // event: on submit
+            $('#saveBtn2').click(function() {
+                let formData = new FormData($("#form-modal_auto_message")[0]);
+                $.ajax({
+                    url: "{{ route('messages.store') }}",
+                    type: "POST",
+                    data: formData,
+                    dataType: 'json',
+                    async: false,
+                    cache: false,
+                    contentType: false,
+                    processData: false,
+                    beforeSend: function() {
+                        $(document).find('span.error-text').text('');
+                    },
+                    success: function(data) {
+                        if (data.status == 0) {
+                            $.each(data.error, function(prefix, val) {
+                                $('span.' + prefix + '_error').text(val[0]);
+                            });
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Oops...',
+                                text: 'Make sure all the required data is filled in, check again!',
+                            })
+
+                        } else {
+                            $('#form-modal_auto_message')[0].reset();
+                            $('#form-modal_auto_message').trigger("reset");
+                            $('#modal_auto_message').modal('hide');
+                            $('#datatable').DataTable().ajax.reload();
+                            Swal.fire(data.title, data.message, 'success')
+                        }
+                    },
+                    error: function(data) {
+                        console.log('Error:', data);
+                    }
+                });
             })
         })
     </script>
@@ -284,6 +342,7 @@
                     $(document).find('span.error-text').text('');
                 },
                 success: function(data) {
+                    console.log(data)
                     if (data.status == 0) {
                         $.each(data.error, function(prefix, val) {
                             $('span.' + prefix + '_error').text(val[0]);
@@ -304,7 +363,22 @@
                                 'Good job!',
                                 'Data has been successfully added!',
                                 'success'
-                            )
+                            ).then((value) => {
+                                let response = data.response
+                                if (response.success === true) {
+                                    Swal.fire(
+                                        'Kirim notifikasi!',
+                                        response.message,
+                                        'success'
+                                    )
+                                } else {
+                                    Swal.fire(
+                                        'Kirim notifikasi!',
+                                        response.message,
+                                        'error'
+                                    )
+                                }
+                            })
                         } else {
                             Swal.fire(
                                 'Good job!',

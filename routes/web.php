@@ -36,6 +36,7 @@ Route::middleware([
 
 Route::resource('devices', DeviceController::class)->only('index', 'update');
 
+Route::get('messages/automessage', [MessageController::class, 'getAutoMessage'])->name('messages.automessage');
 Route::resource('messages', MessageController::class);
 
 Route::post('send', [WaController::class, 'send'])->name('send');
