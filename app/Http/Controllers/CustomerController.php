@@ -41,7 +41,7 @@ class CustomerController extends Controller
         }
 
         return view('customer.index', [
-            'templates' => Message::all()
+            'templates' => Message::where('is_auto', '0')->get()
         ]);
     }
 

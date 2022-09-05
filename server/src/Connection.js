@@ -1,9 +1,9 @@
-import { existsSync, unlinkSync, readdir } from 'fs'
+import { rmSync, readdir } from 'fs'
 import { join } from 'path'
 import pino from 'pino'
 import makeWASocket, {
     makeWALegacySocket,
-    useSingleFileAuthState,
+    useMultiFileAuthState,
     useSingleFileLegacyAuthState,
     makeInMemoryStore,
     Browsers,
@@ -14,8 +14,6 @@ import { toDataURL } from 'qrcode'
 import __dirname from '../helpers/dirname.js'
 import response from '../helpers/response.js'
 
-const MAX_RETRIES = 5
-const RECONNECT_INTERVAL = 5000
 const sessions = new Map()
 const retries = new Map()
 
@@ -27,12 +25,8 @@ const isSessionExists = (sessionId) => {
     return sessions.has(sessionId)
 }
 
-const isSessionFileExists = (name) => {
-    return existsSync(sessionsDir(name))
-}
-
 const shouldReconnect = (sessionId) => {
-    let maxRetries = parseInt(MAX_RETRIES)
+    let maxRetries = parseInt(process.env.MAX_RETRIES ?? 0)
     let attempts = retries.get(sessionId) ?? 0
 
     maxRetries = maxRetries < 1 ? 1 : maxRetries
@@ -50,21 +44,25 @@ const shouldReconnect = (sessionId) => {
 }
 
 const createSession = async (sessionId, isLegacy = false, res = null) => {
-    const sessionFile = (isLegacy ? 'legacy_' : 'md_') + sessionId
+    const sessionFile = (isLegacy ? 'legacy_' : 'md_') + sessionId + (isLegacy ? '.json' : '')
 
     const logger = pino({ level: 'silent' })
     const store = makeInMemoryStore({ logger })
 
-    const { state, saveState } = isLegacy
-        ? useSingleFileLegacyAuthState(sessionsDir(sessionFile))
-        : useSingleFileAuthState(sessionsDir(sessionFile))
+    let state, saveState
+
+    if (isLegacy) {
+        ;({ state, saveState } = useSingleFileLegacyAuthState(sessionsDir(sessionFile)))
+    } else {
+        ;({ state, saveCreds: saveState } = await useMultiFileAuthState(sessionsDir(sessionFile)))
+    }
 
     /**
      * @type {import('@adiwajshing/baileys').CommonSocketConfig}
      */
     const waConfig = {
         auth: state,
-        printQRInTerminal: false,
+        printQRInTerminal: true,
         logger,
         browser: Browsers.ubuntu('Chrome'),
     }
@@ -75,7 +73,7 @@ const createSession = async (sessionId, isLegacy = false, res = null) => {
     const wa = isLegacy ? makeWALegacySocket(waConfig) : makeWASocket.default(waConfig)
 
     if (!isLegacy) {
-        store.readFromFile(sessionsDir(`${sessionId}_store`))
+        store.readFromFile(sessionsDir(`${sessionId}_store.json`))
         store.bind(wa.ev)
     }
 
@@ -117,7 +115,7 @@ const createSession = async (sessionId, isLegacy = false, res = null) => {
         if (connection === 'close') {
             if (statusCode === DisconnectReason.loggedOut || !shouldReconnect(sessionId)) {
                 if (res && !res.headersSent) {
-                    response(res, 500, false, 'Tidak dapat membuat session.')
+                    response(res, 500, false, 'Unable to create session.')
                 }
 
                 return deleteSession(sessionId, isLegacy)
@@ -127,7 +125,7 @@ const createSession = async (sessionId, isLegacy = false, res = null) => {
                 () => {
                     createSession(sessionId, isLegacy, res)
                 },
-                statusCode === DisconnectReason.restartRequired ? 0 : parseInt(RECONNECT_INTERVAL)
+                statusCode === DisconnectReason.restartRequired ? 0 : parseInt(process.env.RECONNECT_INTERVAL ?? 0)
             )
         }
 
@@ -136,11 +134,11 @@ const createSession = async (sessionId, isLegacy = false, res = null) => {
                 try {
                     const qr = await toDataURL(update.qr)
 
-                    response(res, 200, true, 'Kode QR diterima, silakan pindai kode QR.', { qr })
+                    response(res, 200, true, 'QR code received, please scan the QR code.', { qr })
 
                     return
                 } catch {
-                    response(res, 500, false, 'Tidak dapat membuat kode QR.')
+                    response(res, 500, false, 'Unable to create QR code.')
                 }
             }
 
@@ -162,16 +160,12 @@ const getSession = (sessionId) => {
 }
 
 const deleteSession = (sessionId, isLegacy = false) => {
-    const sessionFile = (isLegacy ? 'legacy_' : 'md_') + sessionId
-    const storeFile = `${sessionId}_store`
+    const sessionFile = (isLegacy ? 'legacy_' : 'md_') + sessionId + (isLegacy ? '.json' : '')
+    const storeFile = `${sessionId}_store.json`
+    const rmOptions = { force: true, recursive: true }
 
-    if (isSessionFileExists(sessionFile)) {
-        unlinkSync(sessionsDir(sessionFile))
-    }
-
-    if (isSessionFileExists(storeFile)) {
-        unlinkSync(sessionsDir(storeFile))
-    }
+    rmSync(sessionsDir(sessionFile), rmOptions)
+    rmSync(sessionsDir(storeFile), rmOptions)
 
     sessions.delete(sessionId)
     retries.delete(sessionId)
@@ -213,9 +207,9 @@ const isExists = async (session, jid, isGroup = false) => {
 /**
  * @param {import('@adiwajshing/baileys').AnyWASocket} session
  */
-const sendMessage = async (session, receiver, message) => {
+const sendMessage = async (session, receiver, message, delayMs = 1000) => {
     try {
-        await delay(1000)
+        await delay(parseInt(delayMs))
 
         return session.sendMessage(receiver, message)
     } catch {
@@ -248,7 +242,7 @@ const cleanup = () => {
 
     sessions.forEach((session, sessionId) => {
         if (!session.isLegacy) {
-            session.store.writeToFile(sessionsDir(`${sessionId}_store`))
+            session.store.writeToFile(sessionsDir(`${sessionId}_store.json`))
         }
     })
 }
@@ -260,11 +254,7 @@ const init = () => {
         }
 
         for (const file of files) {
-            if (
-                !file.endsWith('.json') ||
-                (!file.startsWith('md_') && !file.startsWith('legacy_')) ||
-                file.includes('_store')
-            ) {
+            if ((!file.startsWith('md_') && !file.startsWith('legacy_')) || file.endsWith('_store')) {
                 continue
             }
 
